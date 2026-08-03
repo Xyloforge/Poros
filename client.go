@@ -46,6 +46,10 @@ func SendUDP(msg string, conn *net.UDPConn) {
 		serviceType = byte(Leave) // 2
 	case '3':
 		serviceType = byte(Broad) // 3
+	case '4':
+		serviceType = byte(Stun) // 4
+	case '5':
+		serviceType = byte(Discover) // 5
 	default:
 		serviceType = byte(Unknown) // 99
 	}

@@ -38,6 +38,8 @@ type MapManager interface {
 	JoinRoom(clientAddr *net.UDPAddr, rk roomKey)
 	LeaveRoom(clientAddr *net.UDPAddr)
 	BroadCast(clientAddr *net.UDPAddr, message []byte)
+	Stun(clientAddr *net.UDPAddr) string
+	Discover(clientAddr *net.UDPAddr)
 	GetState() MapState
 }
 
@@ -52,6 +54,8 @@ type mapManager struct {
 	createRoomQ chan *net.UDPAddr
 	joinRoomQ   chan joinRoomData
 	leaveRoomQ  chan *net.UDPAddr
+	broadCastQ  chan broadCastData
+	discoverQ   chan *net.UDPAddr
 	getStateQ   chan chan MapState
 }
 
@@ -67,10 +71,16 @@ func NewMapManager(conn *net.UDPConn) MapManager {
 		joinRoomQ:   make(chan joinRoomData, 100),
 		leaveRoomQ:  make(chan *net.UDPAddr, 100),
 		getStateQ:   make(chan chan MapState, 100),
+		broadCastQ:  make(chan broadCastData, 100),
 	}
 
 	go m.startWorker()
 	return &m
+}
+
+type broadCastData struct {
+	clientAddr *net.UDPAddr
+	message    []byte
 }
 
 type joinRoomData struct {
@@ -89,6 +99,10 @@ func getClientKey(clientAddr *net.UDPAddr) clientKey {
 func (m *mapManager) startWorker() {
 	for {
 		select {
+		case broadCastData := <-m.broadCastQ:
+			m.broadCast(broadCastData.clientAddr, broadCastData.message)
+		case clientAddr := <-m.discoverQ:
+			m.discover(clientAddr)
 		case clientAddr := <-m.createRoomQ:
 			rKey := genRoomKey()
 			if _, ok := m.RoomMap[rKey]; ok {
@@ -236,6 +250,21 @@ func (m *mapManager) LeaveRoom(clientAddr *net.UDPAddr) {
 }
 
 func (m *mapManager) BroadCast(clientAddr *net.UDPAddr, message []byte) {
+	data := broadCastData{
+		clientAddr: clientAddr,
+		message:    message,
+	}
+
+	select {
+	case m.broadCastQ <- data:
+	default:
+		res := "server is busy try again later"
+		m.logger.Printf("[WARN] BroadCast %s\n", res)
+		m.conn.WriteToUDPAddrPort([]byte(res), clientAddr.AddrPort())
+	}
+}
+
+func (m *mapManager) broadCast(clientAddr *net.UDPAddr, message []byte) {
 	cKey := getClientKey(clientAddr)
 
 	if _, ok := m.ClientMap[cKey]; !ok {
@@ -268,4 +297,43 @@ func (m *mapManager) GetState() MapState {
 	case <-time.After(2 * time.Second):
 		return MapState{}
 	}
+}
+
+func (m mapManager) Stun(clientAddr *net.UDPAddr) string {
+	res := clientAddr.AddrPort().String()
+	m.conn.WriteToUDPAddrPort([]byte(res), clientAddr.AddrPort())
+	return res
+}
+
+func (m mapManager) Discover(clientAddr *net.UDPAddr) {
+	select {
+	case m.discoverQ <- clientAddr:
+	default:
+		res := "server is busy try again later"
+		m.logger.Printf("[WARN] Discover %s\n", res)
+		m.conn.WriteToUDPAddrPort([]byte(res), clientAddr.AddrPort())
+	}
+}
+
+func (m mapManager) discover(clientAddr *net.UDPAddr) {
+	cKey := getClientKey(clientAddr)
+	if _, ok := m.ClientMap[cKey]; !ok {
+		res := fmt.Sprintf("client %s is not in any room", cKey)
+		m.logger.Printf("[WARN] Discover %s\n", res)
+		m.conn.WriteToUDPAddrPort([]byte(res), clientAddr.AddrPort())
+		return
+	}
+
+	r := m.ClientMap[cKey]
+
+	result := ""
+	for _, c := range r.Clients {
+		if getClientKey(c.UDPAddr) == cKey {
+			continue
+		}
+
+		result = fmt.Sprintf("%s,%s", result, string(getClientKey(clientAddr)))
+	}
+
+	m.conn.WriteToUDPAddrPort([]byte(result), clientAddr.AddrPort())
 }

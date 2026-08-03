@@ -54,6 +54,10 @@ func StartUDPServer() {
 				mm.LeaveRoom(remoteAddr)
 			case Broad:
 				mm.BroadCast(remoteAddr, msg[1:])
+			case Stun:
+				mm.Stun(remoteAddr)
+			case Discover:
+				mm.Discover(remoteAddr)
 			default:
 				_, err = conn.WriteToUDP([]byte("Unknown"), remoteAddr)
 				if err != nil {

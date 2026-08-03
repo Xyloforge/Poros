@@ -38,19 +38,23 @@ def main():
 
     log(f"Connected to UDP Server at {SERVER_IP}:{SERVER_PORT}")
     print("Commands:")
-    print("  0         -> Create Room")
+    print("  0          -> Create Room")
     print("  1<roomKey> -> Join Room (e.g. 1aBcDeF)")
-    print("  2         -> Leave Room")
-    print("  3<msg>    -> Broadcast message to room (e.g. 3Hello)")
+    print("  2          -> Leave Room")
+    print("  3<msg>     -> Broadcast message to room (e.g. 3Hello)")
+    print("  4          -> Stun (Get your Public IP:Port)")
+    print("  5          -> Discover (Get peer endpoints in room)")
     print("-" * 50)
 
     # Go serviceType enum (iota):
-    # Create = 0, Join = 1, Leave = 2, Broad = 3, Unknown = 99
+    # Create = 0, Join = 1, Leave = 2, Broad = 3, Stun = 4, Discover = 5, Unknown = 99
     service_byte_map = {
         '0': 0, # Create
         '1': 1, # Join
         '2': 2, # Leave
         '3': 3, # Broad
+        '4': 4, # Stun
+        '5': 5, # Discover
     }
 
     try:
