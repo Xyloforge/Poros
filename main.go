@@ -16,6 +16,8 @@ func main() {
 	}
 
 	defer conn.Close()
+
+	StartClientListener(conn)
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("Message to send: ")

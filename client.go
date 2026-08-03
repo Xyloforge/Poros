@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 )
 
 var cLog = log.New(os.Stdout, "[CLIENT]: ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -55,16 +54,17 @@ func SendUDP(msg string, conn *net.UDPConn) {
 	if err != nil {
 		cLog.Println("[WARN]: ", err)
 	}
+}
 
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-	bufPtr := readBufferPool.Get().(*[1024]byte)
-	defer readBufferPool.Put(bufPtr)
-
-	buffer := bufPtr[:]
-	n, _, err := conn.ReadFrom(buffer)
-	if err != nil {
-		cLog.Println("[WARN]: ", err)
-	}
-
-	cLog.Printf("Server response: %s\n", string(buffer[:n]))
+func StartClientListener(conn *net.UDPConn) {
+	go func() {
+		buffer := make([]byte, 1024)
+		for {
+			n, _, err := conn.ReadFrom(buffer)
+			if err != nil {
+				return
+			}
+			cLog.Printf("Server broadcast/response: %s\n", string(buffer[:n]))
+		}
+	}()
 }

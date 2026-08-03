@@ -35,7 +35,11 @@ func StartUDPServer() {
 				continue
 			}
 
-			msg := string(buffer[:n])
+			if n < 1 {
+				continue // Ignore empty datagrams to prevent panics
+			}
+
+			msg := buffer[:n]
 
 			serviceType := DetermineServiceType(buffer[0])
 
@@ -49,7 +53,7 @@ func StartUDPServer() {
 			case Leave:
 				mm.LeaveRoom(remoteAddr)
 			case Broad:
-				mm.BroadCast(remoteAddr, buffer[1:])
+				mm.BroadCast(remoteAddr, msg[1:])
 			default:
 				_, err = conn.WriteToUDP([]byte("Unknown"), remoteAddr)
 				if err != nil {
